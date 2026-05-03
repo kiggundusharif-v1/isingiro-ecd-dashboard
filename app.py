@@ -12,9 +12,16 @@ df = pd.read_csv("Isingiro_ECD_cleaned.csv")
 enroll_cols = [c for c in df.columns if "enroll" in c]
 att_cols = [c for c in df.columns if "attend" in c]
 
+# Ensure numeric values
+df[enroll_cols] = df[enroll_cols].apply(pd.to_numeric, errors="coerce")
+df[att_cols] = df[att_cols].apply(pd.to_numeric, errors="coerce")
+
+# Calculate totals
 df["total_enrollment"] = df[enroll_cols].sum(axis=1)
 df["total_attendance"] = df[att_cols].sum(axis=1)
-df["attendance_rate"] = df["total_attendance"] / df["total_enrollment"]
+
+# Avoid division errors
+df["attendance_rate"] = df["total_attendance"] / df["total_enrollment"].replace(0, pd.NA)
 
 # KPIs
 c1, c2, c3, c4 = st.columns(4)
