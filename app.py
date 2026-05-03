@@ -74,12 +74,31 @@ st.header("📊 Executive Summary")
 
 col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("ECD Centres", len(df))
-col2.metric("Total Enrollment", int(df["total_enrollment"].sum()))
-col3.metric("Attendance Rate", f"{df['attendance_rate'].mean() * 100:.1f}%")
-col4.metric("Caregiver Ratio", f"{df['learner_caregiver_ratio'].mean():.1f}" if df["learner_caregiver_ratio"].notna().any() else "N/A")
+# Enrollment by gender (safe fallback if columns exist)
+boys_cols = [c for c in df.columns if "boy" in c.lower()]
+girls_cols = [c for c in df.columns if "girl" in c.lower()]
+
+boys_enroll = df[boys_cols].sum().sum() if boys_cols else 0
+girls_enroll = df[girls_cols].sum().sum() if girls_cols else 0
+
+# total enrollment
+total_enrollment = df["total_enrollment"].sum()
+
+# caregiver ratio (already computed earlier)
+caregiver_ratio = df["learner_caregiver_ratio"].mean()
+
+col1.metric("Total Centres", len(df))
+col2.metric("Total Enrollment", int(total_enrollment))
+col3.metric("Boys Enrollment", int(boys_enroll))
+col4.metric("Girls Enrollment", int(girls_enroll))
 
 st.divider()
+
+st.metric(
+    "Learner–Caregiver Ratio",
+    f"{caregiver_ratio:.1f} : 1" if pd.notna(caregiver_ratio) else "N/A",
+    help="Number of children per caregiver. Lower is better (ECD quality indicator)."
+)
 
 # =========================
 # ACCESS & PARTICIPATION
