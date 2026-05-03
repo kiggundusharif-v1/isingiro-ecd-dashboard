@@ -30,9 +30,14 @@ top_cols = [c for c in df.columns if "top" in c.lower()]
 att_cols = [c for c in df.columns if "attend" in c.lower()]
 caregiver_cols = [c for c in df.columns if "caregiver" in c.lower()]
 
-df[baby_cols + middle_cols + top_cols + att_cols + caregiver_cols] = df[
-    baby_cols + middle_cols + top_cols + att_cols + caregiver_cols
-].apply(pd.to_numeric, errors="coerce")
+#Convert ONLY selected columns safely (no reassignment issue)
+
+all_target_cols = baby_cols + middle_cols + top_cols + att_cols + caregiver_cols
+
+# Keep only columns that actually exist
+all_target_cols = [c for c in all_target_cols if c in df.columns]
+
+df[all_target_cols] = df[all_target_cols].apply(pd.to_numeric, errors="coerce")
 
 df["total_enrollment"] = df[baby_cols + middle_cols + top_cols].sum(axis=1)
 df["total_attendance"] = df[att_cols].sum(axis=1)
