@@ -1,65 +1,93 @@
-import pandas as pd
 import streamlit as st
+import pandas as pd
 import plotly.express as px
 
-st.set_page_config(layout="wide")
-st.title("Isingiro ECD Dashboard")
+# =========================
+# PAGE CONFIG
+# =========================
+st.set_page_config(page_title="Uganda ECD Dashboard", layout="wide")
 
-# Load data
-df = pd.read_csv("Isingiro_ECD_cleaned.csv")
+st.title("🇺🇬 Uganda Early Childhood Development (ECD) Dashboard")
 
-# Basic metrics
-enroll_cols = [c for c in df.columns if "enroll" in c]
-att_cols = [c for c in df.columns if "attend" in c]
+# =========================
+# LOAD DATA
+# =========================
+df = pd.read_csv("Isingiro_ECD_cleaned.csv", encoding="latin1")
 
-# Ensure numeric values
+# =========================
+# CLEAN COLUMN NAMES
+# =========================
+df.columns = df.columns.str.strip()
+
+# =========================
+# IDENTIFY COLUMNS
+# =========================
+enroll_cols = [c for c in df.columns if "enroll" in c.lower()]
+att_cols = [c for c in df.columns if "attend" in c.lower()]
+
+# =========================
+# CONVERT TO NUMERIC SAFELY
+# =========================
 df[enroll_cols] = df[enroll_cols].apply(pd.to_numeric, errors="coerce")
 df[att_cols] = df[att_cols].apply(pd.to_numeric, errors="coerce")
 
-# Calculate totals
+# =========================
+# BASIC INDICATORS
+# =========================
 df["total_enrollment"] = df[enroll_cols].sum(axis=1)
 df["total_attendance"] = df[att_cols].sum(axis=1)
-
-# Avoid division errors
 df["attendance_rate"] = df["total_attendance"] / df["total_enrollment"].replace(0, pd.NA)
 
-# KPIs
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Centres", len(df))
-c2.metric("Enrollment", int(df["total_enrollment"].sum()))
-c3.metric("Attendance", int(df["total_attendance"].sum()))
-c4.metric("Attendance Rate", f"{df['attendance_rate'].mean():.1%}")
+# =========================
+# ECD DOMAIN INDICATORS
+# =========================
+health_cols = [c for c in df.columns if "health" in c.lower()]
+nutrition_cols = [c for c in df.columns if "nutrition" in c.lower()]
+learning_cols = [c for c in df.columns if "learn" in c.lower() or "literacy" in c.lower()]
+protection_cols = [c for c in df.columns if "protect" in c.lower()]
 
-# Enrollment chart
-fig = px.histogram(df, x="total_enrollment", nbins=30, title="Enrollment Distribution")
+df[health_cols] = df[health_cols].apply(pd.to_numeric, errors="coerce")
+df[nutrition_cols] = df[nutrition_cols].apply(pd.to_numeric, errors="coerce")
+df[learning_cols] = df[learning_cols].apply(pd.to_numeric, errors="coerce")
+df[protection_cols] = df[protection_cols].apply(pd.to_numeric, errors="coerce")
+
+df["health_score"] = df[health_cols].mean(axis=1) if health_cols else 0
+df["nutrition_score"] = df[nutrition_cols].mean(axis=1) if nutrition_cols else 0
+df["learning_score"] = df[learning_cols].mean(axis=1) if learning_cols else 0
+df["protection_score"] = df[protection_cols].mean(axis=1) if protection_cols else 0
+
+# =========================
+# DASHBOARD METRICS
+# =========================
+st.subheader("📊 Key ECD Indicators")
+
+col1, col2, col3 = st.columns(3)
+
+col1.metric("Total Enrollment", int(df["total_enrollment"].sum()))
+col2.metric("Total Attendance", int(df["total_attendance"].sum()))
+col3.metric("Avg Attendance Rate", f"{df['attendance_rate'].mean() * 100:.2f}%")
+
+# =========================
+# DOMAIN PERFORMANCE
+# =========================
+st.subheader("🧠 ECD Development Domains")
+
+domain_df = df[["health_score", "nutrition_score", "learning_score", "protection_score"]].mean().reset_index()
+domain_df.columns = ["Domain", "Score"]
+
+fig = px.bar(domain_df, x="Domain", y="Score", title="ECD Domain Performance")
 st.plotly_chart(fig, use_container_width=True)
 
-# Attendance chart
-fig2 = px.box(df, y="attendance_rate", title="Attendance Rate")
-fig2.update_yaxes(tickformat=".0%")
+# =========================
+# ATTENDANCE DISTRIBUTION
+# =========================
+st.subheader("📈 Attendance Rate Distribution")
+
+fig2 = px.histogram(df, x="attendance_rate", nbins=20, title="Attendance Rate Distribution")
 st.plotly_chart(fig2, use_container_width=True)
 
-# Licensing
-license_col = [c for c in df.columns if "licen" in c]
-if license_col:
-    lic = df[license_col[0]].value_counts().reset_index()
-    lic.columns = ["Status", "Centres"]
-
-    fig3 = px.bar(lic, x="Status", y="Centres", text="Centres")
-    fig3.update_traces(textposition="outside")
-    st.plotly_chart(fig3, use_container_width=True)
-
-# Records example
-record_cols = [c for c in df.columns if "register" in c]
-
-data = []
-for col in record_cols[:5]:
-    pct = (df[col] == "Yes").mean()
-    data.append({"Record": col, "Percent": pct})
-
-rec_df = pd.DataFrame(data)
-
-fig4 = px.bar(rec_df, x="Record", y="Percent", text="Percent")
-fig4.update_traces(texttemplate="%{text:.1%}", textposition="outside")
-fig4.update_yaxes(tickformat=".0%")
-st.plotly_chart(fig4, use_container_width=True)
+# =========================
+# RAW DATA VIEW
+# =========================
+with st.expander("🔍 View Raw Data"):
+    st.dataframe(df)
