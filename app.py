@@ -3,9 +3,10 @@ import pandas as pd
 import plotly.express as px
 
 # =========================
-# PAGE SETUP
+# PAGE CONFIG
 # =========================
 st.set_page_config(page_title="Isingiro ECD Dashboard", layout="wide")
+
 st.title("🇺🇬 Isingiro District ECD Dashboard (IECD Report Style)")
 
 # =========================
@@ -15,31 +16,36 @@ df = pd.read_csv("Isingiro_ECD_cleaned.csv", encoding="latin1")
 df.columns = df.columns.str.strip()
 
 # =========================
-# SAFE NUMERIC CONVERSION (FIX APPLIED)
+# SAFE NUMERIC CONVERSION
 # =========================
 for col in df.columns:
-    if df[col].dtype == "object":
-        df[col] = pd.to_numeric(df[col], errors="coerce")
+    df[col] = pd.to_numeric(df[col], errors="coerce")
 
 # =========================
-# HELPER FUNCTIONS
+# HELPER FUNCTIONS (SAFE)
 # =========================
-def yes_no_pct(keyword):
-    cols = [c for c in df.columns if keyword in c.lower()]
-    if not cols:
-        return 0
-    return (df[cols[0]].astype(str).str.lower() == "yes").mean() * 100
-
 def sum_keyword(keyword):
     cols = [c for c in df.columns if keyword in c.lower()]
     if not cols:
         return 0
-    return df[cols].sum().sum()
+
+    temp = df[cols].copy()
+    temp = temp.apply(pd.to_numeric, errors="coerce")
+
+    return temp.fillna(0).sum().sum()
+
+def yes_no_pct(keyword):
+    cols = [c for c in df.columns if keyword in c.lower()]
+    if not cols:
+        return 0
+
+    col = cols[0]
+    return (df[col].astype(str).str.lower() == "yes").mean() * 100
 
 # =========================
-# KEY INDICATORS
+# CORE INDICATORS
 # =========================
-enrollment = sum_keyword("enroll")
+total_enrollment = sum_keyword("enroll")
 boys = sum_keyword("boy")
 girls = sum_keyword("girl")
 sne = sum_keyword("sne")
@@ -58,14 +64,16 @@ st.header("📊 Executive Summary")
 col1, col2, col3, col4 = st.columns(4)
 
 col1.metric("ECD Centres", len(df))
-col2.metric("Total Enrollment", int(enrollment))
+col2.metric("Total Enrollment", int(total_enrollment))
 col3.metric("Boys Enrollment", int(boys))
 col4.metric("Girls Enrollment", int(girls))
 
 st.divider()
 
-st.metric("SNE Learners", int(sne))
-st.metric("Total Caregivers", int(caregivers))
+col5, col6 = st.columns(2)
+
+col5.metric("SNE Learners", int(sne))
+col6.metric("Caregivers", int(caregivers))
 
 st.divider()
 
@@ -96,11 +104,12 @@ for item in quality_items:
         quality_data["Indicator"].append(item.title())
         quality_data["Coverage (%)"].append(pct)
 
-fig2 = px.bar(quality_data, x="Indicator", y="Coverage (%)", color="Indicator")
-st.plotly_chart(fig2, use_container_width=True)
+if quality_data["Indicator"]:
+    fig2 = px.bar(quality_data, x="Indicator", y="Coverage (%)", color="Indicator")
+    st.plotly_chart(fig2, use_container_width=True)
 
 # =========================
-# 3. IECD SERVICES
+# 3️⃣ IECD SERVICES
 # =========================
 st.subheader("3️⃣ IECD Services")
 
@@ -114,11 +123,12 @@ for s in services:
         service_data["Service"].append(s.title())
         service_data["Coverage (%)"].append(pct)
 
-fig3 = px.bar(service_data, x="Service", y="Coverage (%)", color="Service")
-st.plotly_chart(fig3, use_container_width=True)
+if service_data["Service"]:
+    fig3 = px.bar(service_data, x="Service", y="Coverage (%)", color="Service")
+    st.plotly_chart(fig3, use_container_width=True)
 
 # =========================
-# 4. INCLUSION
+# 4️⃣ INCLUSION
 # =========================
 st.subheader("4️⃣ Inclusion")
 
@@ -128,46 +138,49 @@ for c in ["sne", "orphans", "refugees"]:
     cols = [x for x in df.columns if c in x.lower()]
     if cols:
         inc_data["Category"].append(c.upper())
-        inc_data["Total"].append(df[cols].sum().sum())
+        inc_data["Total"].append(df[cols].fillna(0).sum().sum())
 
-fig4 = px.pie(inc_data, names="Category", values="Total")
-st.plotly_chart(fig4, use_container_width=True)
+if inc_data["Category"]:
+    fig4 = px.pie(inc_data, names="Category", values="Total")
+    st.plotly_chart(fig4, use_container_width=True)
 
 # =========================
-# 5. INFRASTRUCTURE
+# 5️⃣ INFRASTRUCTURE
 # =========================
 st.subheader("5️⃣ Infrastructure")
 
-infra = ["permanent", "temporary"]
+infra_items = ["permanent", "temporary"]
 
 infra_data = {"Type": [], "Coverage (%)": []}
 
-for i in infra:
+for i in infra_items:
     pct = yes_no_pct(i)
     if pct > 0:
         infra_data["Type"].append(i.title())
         infra_data["Coverage (%)"].append(pct)
 
-fig5 = px.bar(infra_data, x="Type", y="Coverage (%)", color="Type")
-st.plotly_chart(fig5, use_container_width=True)
+if infra_data["Type"]:
+    fig5 = px.bar(infra_data, x="Type", y="Coverage (%)", color="Type")
+    st.plotly_chart(fig5, use_container_width=True)
 
 # =========================
-# 6. GOVERNANCE
+# 6️⃣ GOVERNANCE
 # =========================
-st.subheader("6️⃣ Governance (CMC & Licensing)")
+st.subheader("6️⃣ Governance")
 
-gov = ["cmc", "license"]
+gov_items = ["cmc", "license"]
 
 gov_data = {"Indicator": [], "Coverage (%)": []}
 
-for g in gov:
+for g in gov_items:
     pct = yes_no_pct(g)
     if pct > 0:
         gov_data["Indicator"].append(g.upper())
         gov_data["Coverage (%)"].append(pct)
 
-fig6 = px.bar(gov_data, x="Indicator", y="Coverage (%)", color="Indicator")
-st.plotly_chart(fig6, use_container_width=True)
+if gov_data["Indicator"]:
+    fig6 = px.bar(gov_data, x="Indicator", y="Coverage (%)", color="Indicator")
+    st.plotly_chart(fig6, use_container_width=True)
 
 # =========================
 # RAW DATA
